@@ -7,8 +7,18 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 class StudentGradeWeightCalculator:
     def __init__(self, root):
         self.root = root
+        self.setup_frame = None
         self.root.title("Student Grades Weight Calculator")
-        self.root.geometry("800x600")
+        width = 800
+        height = 600
+        # user screen dimensions
+        screen_width = self.root.winfo_screenwidth()
+        screen_height = self.root.winfo_screenheight()
+        # calculate x and y coordinates to center
+        x = (screen_width - width) // 2
+        y = (screen_height - height) // 2
+        # apply geometry with centering
+        self.root.geometry(f"{width}x{height}+{x}+{y}")
         self.root.configure(padx=20, pady=20)
 
         # Data storage
@@ -37,40 +47,47 @@ class StudentGradeWeightCalculator:
         self.setup_results_tab()
 
     def setup_setup_tab(self):
-        frame = ttk.LabelFrame(self.setup_tab, text="Grade Components Setup")
-        frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        
-        ttk.Label(frame, text="Enter the number of grade components (e.g., homework, quizzes, exams):").pack(pady=10)
-        
+        # 1. Clear old frame
+        if self.setup_frame is not None:
+            self.setup_frame.destroy()
+
+        # 2. New container for everything
+        self.setup_frame = ttk.LabelFrame(self.setup_tab, text="Grade Components Setup")
+        self.setup_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        # 3. Component-count UI
+        ttk.Label(self.setup_frame,
+            text="Enter the number of grade components (e.g., homework, quizzes, exams):"
+        ).pack(pady=10)
         self.num_components_var = tk.StringVar()
-        ttk.Entry(frame, textvariable=self.num_components_var, width=5).pack(pady=5)
-        
-        ttk.Button(frame, text="Set Components", command=self.set_components).pack(pady=10)
-        
-        self.components_frame = ttk.Frame(frame)
+        ttk.Entry(self.setup_frame, textvariable=self.num_components_var, width=5).pack(pady=5)
+        ttk.Button(self.setup_frame,
+            text="Set Components",
+            command=self.set_components
+        ).pack(pady=10)
+
+        # 4. Dynamic subframe
+        self.components_frame = ttk.Frame(self.setup_frame)
         self.components_frame.pack(fill=tk.BOTH, expand=True, pady=10)
-        
-        # Instructions
-        instruction_frame = ttk.LabelFrame(self.setup_tab, text="Instructions")
-        instruction_frame.pack(fill=tk.X, padx=10, pady=10)
-        
-        instruction_text = """
-        This application helps determine the weights of different grading components.
-        
-        How to use:
-        1. Enter the number of grading components (homework, quizzes, etc.).
-        2. Name each component.
-        3. Enter student scores for each component and their final grades.
-        4. Calculate to find the weight of each component.
-        
-        The application uses a linear system (Ax = b) where:
-        - A is the matrix of student scores
-        - x is the vector of weights we want to find
-        - b is the vector of final grades
-        
-        The system finds weights that best fit the provided data.
-        """
-        ttk.Label(instruction_frame, text=instruction_text, wraplength=700, justify=tk.LEFT).pack(padx=10, pady=10)
+
+        # 5. Instructions *inside* the same setup_frame
+        instr = ttk.LabelFrame(self.setup_frame, text="Instructions")
+        instr.pack(fill=tk.X, padx=10, pady=10)
+        instruction_text = (
+            "This application helps determine the weights of different grading components.\n\n"
+            "How to use:\n"
+            "1. Enter the number of grading components (homework, quizzes, etc.).\n"
+            "2. Name each component.\n"
+            "3. Enter student scores for each component and their final grades.\n"
+            "4. Calculate to find the weight of each component.\n\n"
+            "The application uses a linear system (Ax = b) where:\n"
+            "- A is the matrix of student scores\n"
+            "- x is the vector of weights we want to find\n"
+            "- b is the vector of final grades\n\n"
+            "The system finds weights that best fit the provided data."
+        )
+        ttk.Label(instr, text=instruction_text, wraplength=700, justify=tk.LEFT).pack(padx=10, pady=10)
+
 
     def set_components(self):
         try:
@@ -100,6 +117,9 @@ class StudentGradeWeightCalculator:
         # Add button to confirm component names
         ttk.Button(self.components_frame, text="Confirm Components", 
                    command=self.confirm_components).pack(pady=10)
+        
+        ttk.Button(self.components_frame, text="Back", 
+                   command=self.setup_setup_tab).pack(pady=10)
 
     def confirm_components(self):
         # Collect component names
