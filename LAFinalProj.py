@@ -9,15 +9,11 @@ class StudentGradeWeightCalculator:
         self.root = root
         self.setup_frame = None
         self.root.title("Student Grades Weight Calculator")
-        width = 800
-        height = 600
-        # user screen dimensions
-        screen_width = self.root.winfo_screenwidth()
-        screen_height = self.root.winfo_screenheight()
-        # calculate x and y coordinates to center
-        x = (screen_width - width) // 2
-        y = (screen_height - height) // 2
-        # apply geometry with centering
+        
+        # Center window
+        width, height = 800, 600
+        sw, sh = self.root.winfo_screenwidth(), self.root.winfo_screenheight()
+        x, y = (sw - width)//2, (sh - height)//2
         self.root.geometry(f"{width}x{height}+{x}+{y}")
         self.root.configure(padx=20, pady=20)
 
@@ -27,52 +23,94 @@ class StudentGradeWeightCalculator:
         self.final_grades = []
         self.weights = None
         self.num_components = 0
-        
-        # Create the main notebook with tabs
+
+        # Notebook & tabs
         self.notebook = ttk.Notebook(root)
         self.notebook.pack(fill=tk.BOTH, expand=True)
-        
-        # Create tabs
-        self.setup_tab = ttk.Frame(self.notebook)
-        self.data_tab = ttk.Frame(self.notebook)
-        self.results_tab = ttk.Frame(self.notebook)
-        
-        self.notebook.add(self.setup_tab, text="Setup")
-        self.notebook.add(self.data_tab, text="Enter Data")
-        self.notebook.add(self.results_tab, text="Results")
+
+        # For each tab: make it scrollable
+        self.setup_tab = self._make_scrollable_tab("Setup")
+        self.data_tab  = self._make_scrollable_tab("Enter Data")
+        self.results_tab = self._make_scrollable_tab("Results")
+
         
         # Initialize each tab
         self.setup_setup_tab()
         self.setup_data_tab()
         self.setup_results_tab()
+        
+    def _make_scrollable_tab(self, title):
+        """Helper to create a new notebook tab that's vertically scrollable,
+        and also makes its content frame always match the canvas width."""
+        container = ttk.Frame(self.notebook)
+        self.notebook.add(container, text=title)
+
+        # 1. Canvas and scrollbar
+        canvas = tk.Canvas(container, borderwidth=0, highlightthickness=0, takefocus=0)
+        vscroll = ttk.Scrollbar(container, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=vscroll.set)
+
+        vscroll.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+
+        # 2. Frame inside the canvas
+        content = ttk.Frame(canvas)
+        # save the window ID so we can resize it later
+        window_id = canvas.create_window((0, 0), window=content, anchor="nw")
+
+        # 3. Whenever content size changes, update scrollregion
+        def on_content_configure(event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+        content.bind("<Configure>", on_content_configure)
+
+        # 4. Whenever canvas width changes, resize the inner window
+        def on_canvas_configure(event):
+            # event.width is the new width of the canvas
+            canvas.itemconfigure(window_id, width=event.width)
+        canvas.bind("<Configure>", on_canvas_configure)
+
+        # Store references
+        container.canvas = canvas
+        container.content = content
+        return container
+
 
     def setup_setup_tab(self):
-        # 1. Clear old frame
-        if self.setup_frame is not None:
-            self.setup_frame.destroy()
+        parent = self.setup_tab.content
 
-        # 2. New container for everything
-        self.setup_frame = ttk.LabelFrame(self.setup_tab, text="Grade Components Setup")
+        # 1. Clear everything
+        for w in parent.winfo_children():
+            w.destroy()
+
+        # 2. Main setup frame
+        self.setup_frame = ttk.LabelFrame(parent, text="Grade Components Setup")
         self.setup_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        # 3. Component-count UI
+        # 3. Component‐count prompt
         ttk.Label(self.setup_frame,
-            text="Enter the number of grade components (e.g., homework, quizzes, exams):"
+                text="Enter the number of grade components (e.g., homework, quizzes, exams):"
         ).pack(pady=10)
         self.num_components_var = tk.StringVar()
-        ttk.Entry(self.setup_frame, textvariable=self.num_components_var, width=5).pack(pady=5)
+        entry = tk.Entry(self.setup_frame,
+                        textvariable=self.num_components_var,
+                        width=5,
+                        bd=1,               # normal border
+                        highlightthickness=0  # NO focus ring
+        )
+        entry.pack(pady=5)
         ttk.Button(self.setup_frame,
-            text="Set Components",
-            command=self.set_components
+                text="Set Components",
+                command=self.set_components
         ).pack(pady=10)
 
-        # 4. Dynamic subframe
+        # 4. Placeholder for dynamic entries
         self.components_frame = ttk.Frame(self.setup_frame)
         self.components_frame.pack(fill=tk.BOTH, expand=True, pady=10)
 
-        # 5. Instructions *inside* the same setup_frame
-        instr = ttk.LabelFrame(self.setup_frame, text="Instructions")
-        instr.pack(fill=tk.X, padx=10, pady=10)
+        # 5. Instructions – make this fill *all* horizontal space
+        instr = ttk.LabelFrame(parent, text="Instructions")
+        instr.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)       # ← expand here!
+
         instruction_text = (
             "This application helps determine the weights of different grading components.\n\n"
             "How to use:\n"
@@ -86,7 +124,10 @@ class StudentGradeWeightCalculator:
             "- b is the vector of final grades\n\n"
             "The system finds weights that best fit the provided data."
         )
-        ttk.Label(instr, text=instruction_text, wraplength=700, justify=tk.LEFT).pack(padx=10, pady=10)
+
+        # Remove fixed wraplength, and let the label fill its parent
+        lbl = ttk.Label(instr, text=instruction_text, justify=tk.LEFT)
+        lbl.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
 
     def set_components(self):
@@ -116,10 +157,10 @@ class StudentGradeWeightCalculator:
         
         # Add button to confirm component names
         ttk.Button(self.components_frame, text="Confirm Components", 
-                   command=self.confirm_components).pack(pady=10)
+                   command=self.confirm_components).pack(pady=10, anchor='center')
         
         ttk.Button(self.components_frame, text="Back", 
-                   command=self.setup_setup_tab).pack(pady=10)
+                   command=self.setup_setup_tab).pack(pady=10, anchor='center')
 
     def confirm_components(self):
         # Collect component names
