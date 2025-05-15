@@ -185,89 +185,83 @@ class StudentGradeWeightCalculator:
         # This will be populated after components are set
 
     def setup_data_entry(self):
-        # Clear the existing data frame
-        for widget in self.data_frame.winfo_children():
-            widget.destroy()
+        parent = self.data_tab.content  # already has scrollbar built in
         
-        # Create a frame for the data table
-        table_frame = ttk.Frame(self.data_frame)
-        table_frame.pack(fill=tk.BOTH, expand=True)
+        # 1. Clear any existing widgets in the data tab
+        for w in parent.winfo_children():
+            w.destroy()
         
-        # Create scrollbar and canvas for the table
-        canvas = tk.Canvas(table_frame)
-        scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=canvas.yview)
-        scrollable_frame = ttk.Frame(canvas)
+        # 2. Create a direct content frame (no additional canvas/scrollbar)
+        main_frame = ttk.Frame(parent)
+        main_frame.pack(fill=tk.BOTH, expand=True)
         
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-        
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-        
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-        
-        # Create headers
-        ttk.Label(scrollable_frame, text="Student", width=10).grid(row=0, column=0, padx=5, pady=5)
+        # 3. Build table headers
+        ttk.Label(main_frame, text="Student", width=10).grid(row=0, column=0, padx=5, pady=5, sticky="w")
         for i, name in enumerate(self.component_names):
-            ttk.Label(scrollable_frame, text=name, width=10).grid(row=0, column=i+1, padx=5, pady=5)
-        ttk.Label(scrollable_frame, text="Final Grade", width=10).grid(row=0, column=len(self.component_names)+1, padx=5, pady=5)
+            ttk.Label(main_frame, text=name, width=10)\
+                .grid(row=0, column=i+1, padx=5, pady=5)
+        ttk.Label(main_frame, text="Final Grade", width=10)\
+            .grid(row=0, column=len(self.component_names)+1, padx=5, pady=5)
         
-        # Create entries for initial students (let's start with 5)
+        # 4. Initial student rows
         self.student_entries = []
         num_initial_students = 5
+        self.num_students = num_initial_students
         
         for i in range(num_initial_students):
             row_entries = []
-            ttk.Label(scrollable_frame, text=f"Student {i+1}", width=10).grid(row=i+1, column=0, padx=5, pady=2)
+            ttk.Label(main_frame, text=f"Student {i+1}", width=10)\
+                .grid(row=i+1, column=0, padx=5, pady=2, sticky="w")
             
-            # Component scores
             for j in range(self.num_components):
-                entry = ttk.Entry(scrollable_frame, width=10)
+                entry = ttk.Entry(main_frame, width=10)
                 entry.grid(row=i+1, column=j+1, padx=5, pady=2)
                 row_entries.append(entry)
             
-            # Final grade
-            final_entry = ttk.Entry(scrollable_frame, width=10)
+            final_entry = ttk.Entry(main_frame, width=10)
             final_entry.grid(row=i+1, column=self.num_components+1, padx=5, pady=2)
             row_entries.append(final_entry)
             
             self.student_entries.append(row_entries)
         
-        # Add buttons for data management
-        button_frame = ttk.Frame(self.data_frame)
+        # 5. Data-management buttons
+        button_frame = ttk.Frame(parent)
         button_frame.pack(fill=tk.X, pady=10)
+        ttk.Button(button_frame, text="Add Student", command=self.add_student)\
+            .pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Remove Last Student", command=self.remove_student)\
+            .pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Clear All Data", command=self.clear_data)\
+            .pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Calculate Weights", command=self.calculate_weights)\
+            .pack(side=tk.RIGHT, padx=5)
         
-        ttk.Button(button_frame, text="Add Student", command=self.add_student).pack(side=tk.LEFT, padx=5)
-        ttk.Button(button_frame, text="Remove Last Student", command=self.remove_student).pack(side=tk.LEFT, padx=5)
-        ttk.Button(button_frame, text="Clear All Data", command=self.clear_data).pack(side=tk.LEFT, padx=5)
-        ttk.Button(button_frame, text="Calculate Weights", command=self.calculate_weights).pack(side=tk.RIGHT, padx=5)
-        
-        # Store the scrollable frame and number of students for later use
-        self.scrollable_frame = scrollable_frame
-        self.num_students = num_initial_students
+        # 6. Keep reference for dynamic add/remove
+        self.main_frame = main_frame
 
     def add_student(self):
         i = self.num_students
         row_entries = []
         
-        ttk.Label(self.scrollable_frame, text=f"Student {i+1}", width=10).grid(row=i+1, column=0, padx=5, pady=2)
+        ttk.Label(self.main_frame, text=f"Student {i+1}", width=10).grid(row=i+1, column=0, padx=5, pady=2, sticky="w")
         
         # Component scores
         for j in range(self.num_components):
-            entry = ttk.Entry(self.scrollable_frame, width=10)
+            entry = ttk.Entry(self.main_frame, width=10)
             entry.grid(row=i+1, column=j+1, padx=5, pady=2)
             row_entries.append(entry)
         
         # Final grade
-        final_entry = ttk.Entry(self.scrollable_frame, width=10)
+        final_entry = ttk.Entry(self.main_frame, width=10)
         final_entry.grid(row=i+1, column=self.num_components+1, padx=5, pady=2)
         row_entries.append(final_entry)
         
         self.student_entries.append(row_entries)
         self.num_students += 1
+        
+        # No need to update scroll region - the parent scrollbar handles it automatically
+        # Just update the UI to show new content
+        self.main_frame.update_idletasks()
 
     def remove_student(self):
         if self.num_students > 1:
@@ -276,7 +270,7 @@ class StudentGradeWeightCalculator:
                 entry.destroy()
             
             # Remove the student label
-            for widget in self.scrollable_frame.grid_slaves():
+            for widget in self.main_frame.grid_slaves():
                 if int(widget.grid_info()["row"]) == self.num_students:
                     if int(widget.grid_info()["column"]) == 0:
                         widget.destroy()
@@ -284,13 +278,16 @@ class StudentGradeWeightCalculator:
             # Update the list and counter
             self.student_entries.pop()
             self.num_students -= 1
+            
+            # Update display
+            self.main_frame.update_idletasks()
 
     def clear_data(self):
         if messagebox.askyesno("Confirm", "Are you sure you want to clear all data?"):
             for row in self.student_entries:
                 for entry in row:
                     entry.delete(0, tk.END)
-
+                
     def collect_data(self):
         data_matrix = []
         final_grades = []
