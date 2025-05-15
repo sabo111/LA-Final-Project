@@ -29,17 +29,19 @@ class StudentGradeWeightCalculator:
         self.notebook.pack(fill=tk.BOTH, expand=True)
 
         # For each tab: make it scrollable
-        self.setup_tab = self._make_scrollable_tab("Setup")
-        self.data_tab  = self._make_scrollable_tab("Enter Data")
-        self.results_tab = self._make_scrollable_tab("Results")
+        self.setup_tab = self._make_scrollable_setup_tab("Setup")
+        self.data_tab  = self._make_scrollable_data_tab("Enter Data")
 
-        
+        self.results_tab = ttk.Frame(self.notebook)
+
+        self.notebook.add(self.results_tab, text="Results")
+
         # Initialize each tab
         self.setup_setup_tab()
         self.setup_data_tab()
         self.setup_results_tab()
         
-    def _make_scrollable_tab(self, title):
+    def _make_scrollable_setup_tab(self, title):
         """Helper to create a new notebook tab that's vertically scrollable,
         and also makes its content frame always match the canvas width."""
         container = ttk.Frame(self.notebook)
@@ -74,6 +76,48 @@ class StudentGradeWeightCalculator:
         container.content = content
         return container
 
+    def _make_scrollable_data_tab(self, title):
+        """Helper to create a new notebook tab that's both vertically and horizontally scrollable."""
+        container = ttk.Frame(self.notebook)
+        self.notebook.add(container, text=title)
+        
+        # Create canvas
+        canvas = tk.Canvas(container, borderwidth=0, highlightthickness=0)
+        
+        # Create scrollbars
+        vscroll = ttk.Scrollbar(container, orient="vertical", command=canvas.yview)
+        hscroll = ttk.Scrollbar(container, orient="horizontal", command=canvas.xview)
+        
+        # Configure canvas to use scrollbars
+        canvas.configure(yscrollcommand=vscroll.set, xscrollcommand=hscroll.set)
+        
+        # Position scrollbars and canvas using pack
+        hscroll.pack(side="bottom", fill="x")
+        vscroll.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+        
+        # Frame inside the canvas
+        content = ttk.Frame(canvas)
+        
+        # Create window inside canvas
+        window_id = canvas.create_window((0, 0), window=content, anchor="nw")
+        
+        # Update scrollregion when content size changes
+        def on_content_configure(event):
+            # Get content dimensions
+            content_width = content.winfo_reqwidth()
+            content_height = content.winfo_reqheight()
+            
+            # Update scroll region
+            canvas.configure(scrollregion=(0, 0, content_width, content_height))
+        
+        content.bind("<Configure>", on_content_configure)
+        
+        # Store references
+        container.canvas = canvas
+        container.content = content
+        
+        return container
 
     def setup_setup_tab(self):
         parent = self.setup_tab.content
@@ -234,7 +278,7 @@ class StudentGradeWeightCalculator:
         ttk.Button(button_frame, text="Clear All Data", command=self.clear_data)\
             .pack(side=tk.LEFT, padx=5)
         ttk.Button(button_frame, text="Calculate Weights", command=self.calculate_weights)\
-            .pack(side=tk.RIGHT, padx=5)
+            .pack(side=tk.LEFT, padx=5)
         
         # 6. Keep reference for dynamic add/remove
         self.main_frame = main_frame
